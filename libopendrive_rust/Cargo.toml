@@ -1,0 +1,23 @@
+[package]
+name = "opendrive_rust"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+ffi = []
+
+[dependencies]
+quick-xml = { version = "0.31", features = ["serialize", "async-tokio"] }
+nalgebra = "0.32"
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+fresnel = "0.1.0"
+
+[dev-dependencies]
+tempfile = "3"
+
+[build-dependencies]
+cbindgen = "0.26.0"
