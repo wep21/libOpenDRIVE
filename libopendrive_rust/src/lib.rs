@@ -1,6 +1,4 @@
-use nalgebra::Point3;
 use serde::Deserialize;
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use thiserror::Error;
@@ -58,7 +56,7 @@ use fresnel::fresnl;
 use std::f64::consts::PI;
 
 impl Road {
-    pub fn get_point(&self, s: f64, t: f64, h: f64) -> (f64, f64, f64, f64) {
+    pub fn get_point(&self, s: f64, _t: f64, _h: f64) -> (f64, f64, f64, f64) {
         let mut x = 0.0;
         let mut y = 0.0;
         let z = 0.0;
@@ -413,4 +411,74 @@ pub struct LaneWidth {
     pub c: f64,
     #[serde(rename = "@d")]
     pub d: f64,
+}
+
+#[cfg(feature = "ffi")]
+pub mod ffi {
+    use super::*;
+    use std::ffi::CStr;
+    use std::os::raw::c_char;
+
+    #[no_mangle]
+    pub extern "C" fn opendrive_load(path: *const c_char) -> *mut OpenDrive {
+        let c_str = unsafe {
+            assert!(!path.is_null());
+            CStr::from_ptr(path)
+        };
+        let r_str = c_str.to_str().unwrap();
+        match OpenDrive::new(r_str) {
+            Ok(open_drive) => Box::into_raw(Box::new(open_drive)),
+            Err(_) => std::ptr::null_mut(),
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn opendrive_free(ptr: *mut OpenDrive) {
+        if ptr.is_null() {
+            return;
+        }
+        unsafe {
+            drop(Box::from_raw(ptr));
+        }
+    }
+
+    #[repr(C)]
+    pub struct Point {
+        pub x: f64,
+        pub y: f64,
+        pub z: f64,
+        pub heading: f64,
+    }
+
+    #[no_mangle]
+    pub extern "C" fn opendrive_get_road_count(ptr: *const OpenDrive) -> usize {
+        let open_drive = unsafe {
+            assert!(!ptr.is_null());
+            &*ptr
+        };
+        open_drive.roads.len()
+    }
+
+    #[no_mangle]
+    pub extern "C" fn opendrive_get_road(ptr: *const OpenDrive, index: usize) -> *const Road {
+        let open_drive = unsafe {
+            assert!(!ptr.is_null());
+            &*ptr
+        };
+        if index < open_drive.roads.len() {
+            &open_drive.roads[index] as *const Road
+        } else {
+            std::ptr::null()
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn road_get_point(ptr: *const Road, s: f64, t: f64, h: f64) -> Point {
+        let road = unsafe {
+            assert!(!ptr.is_null());
+            &*ptr
+        };
+        let (x, y, z, heading) = road.get_point(s, t, h);
+        Point { x, y, z, heading }
+    }
 }
